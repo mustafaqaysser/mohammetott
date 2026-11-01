@@ -11,6 +11,8 @@ single scrolling page for the client to choose one.
 
 ## Deliverables
 
+- **`dist/DAVINCI-Brand-Identity.zip`** — the complete package in one file: identity book PDF, interactive presentation, logos (SVG / PDF / PNG / favicons), colour files, typography, high-res mockups, screenshots. `dist/DAVINCI-Identity-Book.pdf` is the book on its own.
+
 - `index.html` — the presentation. Self-contained (inline CSS, JS, SVG); only Google Fonts load remotely. Open it in any browser.
 - `logos/<A-codex|B-model|C-monolith>/` — symbol, horizontal and stacked lockups, light and dark, as SVG with all type converted to outlines. `symbol-small` is the ≤ 32 px master. `-dark` files are for dark backgrounds (transparent, light-coloured artwork).
 - `screenshots/desktop` (1440 px) and `screenshots/mobile` (375 px) — every section.
@@ -23,6 +25,8 @@ pip install fonttools uharfbuzz qrcode
 python3 tools/build_logos.py   # geometry + outlined wordmarks → logos/ and tools/build/
 python3 tools/build_page.py    # → index.html
 node tools/screenshot.js       # → screenshots/ (needs Playwright)
+node tools/export.js /tmp/export          # PNG/PDF logos, mockups, book pages
+python3 tools/package.py /tmp/export dist  # → dist/DAVINCI-Brand-Identity.zip (pip install img2pdf pypdf)
 ```
 
 Contact details in the mockups are placeholders (phone `0770 000 0000`, domain `davinci-eng.iq`, names and project).
