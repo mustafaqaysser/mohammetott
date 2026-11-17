@@ -32,6 +32,6 @@ with wave.open(str(R / 'build/soundtrack.wav'), 'wb') as w:
 subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', str(R / 'build/soundtrack.wav'), '-c:a', 'aac', '-b:a', '192k', str(R / 'soundtrack.m4a')], check=True)
 name = 'hafawa-reel.mp4' if found else 'hafawa-reel-music-only.mp4'
 subprocess.run(['ffmpeg', '-v', 'error', '-y', '-framerate', '30', '-i', str(R / 'build/frames/f%05d.jpg'), '-i', str(R / 'build/soundtrack.wav'),
-                '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-r', '30',
+                '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-maxrate', '10M', '-bufsize', '20M', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-r', '30',
                 '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-movflags', '+faststart', '-shortest', str(R / name)], check=True)
 print('->', name)
