@@ -1,6 +1,3 @@
 build/
 *.mp4
 soundtrack.m4a
-voice/*.wav
-voice/*.mp3
-voice/*.m4a
