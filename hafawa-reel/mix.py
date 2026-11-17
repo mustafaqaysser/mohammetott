@@ -9,6 +9,11 @@ def load(p):
 with wave.open(str(R / 'build/music.wav')) as w:
     music = np.frombuffer(w.readframes(w.getnframes()), '<i2').reshape(-1, 2) / 32768.
 N = len(music); vox = np.zeros(N); found = 0
+track = R / 'build/voice_track.wav'
+if track.exists():                                   # one continuous take, already fitted by retime.py
+    v = load(track); act = np.abs(v) > .02
+    v = v / (np.sqrt((v[act] ** 2).mean()) + 1e-9) * 0.16
+    vox[: min(N, len(v))] = v[:N]; found = len(SLOTS); SLOTS = []
 for s in SLOTS:
     f = next((p for p in (R / 'voice').glob(s['id'] + '.*') if p.suffix.lower() in ('.wav', '.mp3', '.m4a', '.aac', '.ogg', '.flac')), None)
     if not f: continue

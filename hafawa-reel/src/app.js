@@ -1,7 +1,9 @@
 /* «نسافر قبلك» — Instagram Reel, 1080x1920, 80 s, deterministic render(t). */
 (() => {
 'use strict';
-const W = 1080, H = 1920, DUR = 80;
+const W = 1080, H = 1920, TM = window.TIMING || null, DUR = TM ? TM.D : 80;
+const AN = TM ? TM.anchors : [[0, 0], [80, 80]];
+const warp = T => { for (let i = 1; i < AN.length; i++) if (T <= AN[i][1]) { const [v0, o0] = AN[i - 1], [v1, o1] = AN[i]; return v0 + (v1 - v0) * (T - o0) / (o1 - o0); } return 80; };
 const NS = 'http://www.w3.org/2000/svg';
 const CAPTURE = /capture=1/.test(location.search);
 
@@ -753,22 +755,26 @@ const CUES = [
   [76.8, 79.7, 'وكل هذا… بدأ من هالفنجان.', ['هالفنجان.']],
 ];
 const capRoot = document.getElementById('captions');
-const cues = CUES.map(([a, b, text, hl = [], style = 'cap', y]) => {
+const CUE_SRC = TM ? TM.cues : CUES.map(([a, b, text, hl = [], style = 'cap', y]) => ({ a, b, e: b - .4, text, hl, style, y }));
+const cues = CUE_SRC.map(({ a, b, e: se, text, hl = [], style = 'cap', y }) => {
   const e = D('cue ' + style, capRoot);
   if (y) e.style.top = y + 'px';
   const words = text.split(' ').map(w => { const s = document.createElement('span'); s.className = 'w' + (hl.includes(w) ? ' hl' : ''); s.textContent = w; e.appendChild(s); return s; });
-  return { a, b, e, words, style };
+  const lens = words.map(w => w.textContent.replace(/[\u064B-\u0652…\.؟:،]/g, '').length + 1);
+  const tot = lens.reduce((x, y) => x + y, 0); let acc = 0;
+  const offs = lens.map(l => { const o = acc / tot; acc += l; return o; });
+  return { a, b, se, e, words, style, offs };
 });
 function drawCaptions(t) {
   for (const c of cues) {
     const on = t >= c.a - .01 && t < c.b;
     c.e.style.display = on ? 'block' : 'none';
     if (!on) continue;
-    const n = c.words.length, span = Math.min((c.b - c.a) * .7, n * .32);
+    const span = Math.max(.2, (c.se - c.a) * .9);
     const out = 1 - P(t, c.b - .22, .22, E.soft);
     const dur = c.style === 'cap' ? .26 : .55;
     c.words.forEach((w, i) => {
-      const k = P(t, c.a + span * i / n, dur, E.out);
+      const k = P(t, c.a + span * c.offs[i], dur, E.out);
       w.style.opacity = k * out;
       w.style.transform = c.style === 'cap' ? `translateY(${(1 - k) * 26}px) scale(${1.15 - k * .15})` : `translateY(${(1 - k) * 14}px)`;
       w.style.filter = c.style === 'cap' ? '' : `blur(${(1 - k) * 8}px)`;
@@ -790,15 +796,16 @@ const FLASH = [[3.2, .45, '#fff', .55], [39.35, .18, '#fff', .22], [60.6, .5, '#
 const BLACKS = [[21.75, 22.0, 0, 0], [39.5, 40.0, 0, .45], [59.0, 59.85, 0, 0], [9.95, 10.45, .25, .25]];
 const SHAKES = [[3.2, .5, 14], [17.4, .35, 10], [18.2, .35, 10], [19.0, .35, 12], [19.8, 1.9, 6], [39.35, .3, 6], [51.8, .3, 9], [52.7, .3, 9], [53.6, .3, 9], [54.6, .3, 9], [55.6, .35, 11], [60.6, .5, 12]];
 
-function render(t) {
-  t = ((t % DUR) + DUR) % DUR;
+function render(T) {
+  T = ((T % DUR) + DUR) % DUR;
+  const t = warp(T);
   for (const s of scenes) {
     const o = s.env(t);
     if (o <= 0) { s.root.style.display = 'none'; continue; }
     s.root.style.display = 'block'; s.root.style.opacity = o;
     s.draw(t, s);
   }
-  drawCaptions(t);
+  drawCaptions(T);
   // flash
   let fo = 0, fc = '#fff';
   for (const [a, d, c, m] of FLASH) if (t >= a && t < a + d) { fo = Math.max(fo, (1 - (t - a) / d) * m); fc = c; }
@@ -810,7 +817,7 @@ function render(t) {
   let sx = 0, sy = 0;
   for (const [a, d, amp] of SHAKES) if (t >= a && t < a + d) { const k = 1 - (t - a) / d; sx += nz(t * 38, a) * amp * k; sy += nz(t * 41, a + 9) * amp * k; }
   shakeEl.style.transform = `translate(${sx}px,${sy}px)`;
-  gctx.putImageData(grainFrames[Math.floor(t * 24) % 8], 0, 0);
+  gctx.putImageData(grainFrames[Math.floor(T * 24) % 8], 0, 0);
 }
 window.__render = render;
 window.__DUR = DUR;

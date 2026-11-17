@@ -3,15 +3,24 @@ python3 audio.py  ->  build/music.wav (48 kHz stereo)"""
 import numpy as np, wave, pathlib
 
 FS = 48000
-DUR = 80.0
+import json
+_tp = pathlib.Path(__file__).parent / 'src/timing.json'
+TM = json.loads(_tp.read_text()) if _tp.exists() else None
+DUR = TM['D'] if TM else 80.0
+AN = TM['anchors'] if TM else [[0, 0], [80, 80]]
 N = int(FS * DUR)
+def W(v):  # visual time -> output time
+    for (v0, o0), (v1, o1) in zip(AN, AN[1:]):
+        if v <= v1: return o0 + (o1 - o0) * (v - v0) / (v1 - v0)
+    return AN[-1][1]
+def dur(a, d): return W(a + d) - W(a)
 rng = np.random.default_rng(7)
 L = np.zeros(N); Rr = np.zeros(N)          # dry bus
 RV = np.zeros(N)                           # reverb send (mono)
 
 def idx(t): return int(round(t * FS))
 def add(sig, t, gain=1.0, pan=0.0, verb=0.0):
-    i = idx(t); j = min(N, i + len(sig))
+    i = idx(W(t)); j = min(N, i + len(sig))
     if j <= i: return
     s = sig[: j - i] * gain
     l = np.cos((pan + 1) * np.pi / 4); r = np.sin((pan + 1) * np.pi / 4)
@@ -140,7 +149,7 @@ def air(d, lo=200, hi=1200): return fft_filter(noise(d), lo=lo, hi=hi)
 # ---------- score ----------
 # loop bed (start + end): D drone + pour
 for a, b in ((0, 3.25), (76.4, 80.0)):
-    d = b - a
+    d = W(b) - W(a)
     add(pad([NOTE['D3'] / 2, NOTE['A2'], NOTE['D3']], d, a=.05 if a == 0 else .6, r=.05 if b == 80 else .3, bright=700), a, .16, verb=.15)
     add(pour(d), a, .045, pan=-.1)
 add(oud('D4', 2.4, .55), 1.7, .5, pan=.2, verb=.5)
@@ -151,7 +160,7 @@ add(oud('D4', 2.4, .5), 78.6, .4, pan=-.2, verb=.5)
 add(whoosh(.8, True)[::-1] * np.linspace(0, 1, int(.8 * FS)) ** 2, 2.45, .35, verb=.2)
 add(boom(2.5), 3.2, .9, verb=.35); add(whoosh(1.2, False), 3.2, .25, pan=.3)
 # airport: cold drone + air + crowd murmur
-d = 7.0
+d = dur(3.2, 7.0)
 add(pad([NOTE['A2'], NOTE['A2'] * 1.5, NOTE['D3'] * 1.5], d, a=1, r=.5, bright=900), 3.2, .14, verb=.3)
 add(air(d, 150, 700) * adsr(d, .5, .5), 3.2, .05)
 add(fft_filter(noise(d), 300, 1400) * (0.6 + 0.4 * np.abs(np.sin(2 * np.pi * 0.7 * T(d)))) * adsr(d, .8, .5), 3.2, .02, pan=.3)
@@ -160,7 +169,7 @@ for k, f in enumerate((1250, 900)):
 for k in range(5): add(bell(NOTE['A5'], .6, .12), 8.6 + k * .7, .03)
 
 # nostalgia: oud motif over warm pad
-add(pad([NOTE['D3'], NOTE['F3'], NOTE['A3']], 5.6, a=1.2, r=1.4, bright=1500), 10.1, .17, verb=.4)
+add(pad([NOTE['D3'], NOTE['F3'], NOTE['A3']], dur(10.1, 5.6), a=1.2, r=1.4, bright=1500), 10.1, .17, verb=.4)
 for t0, n in ((10.4, 'D4'), (10.85, 'F4'), (11.3, 'Eb4'), (11.75, 'D4'), (12.7, 'G4'), (13.1, 'F4'), (13.5, 'Eb4'), (13.9, 'D4'), (14.4, 'C4'), (14.8, 'D4')):
     add(oud(n, 1.8, .8), t0, .42, pan=.15, verb=.45)
 add(np.sin(2 * np.pi * 660 * T(.25)) * np.exp(-T(.25) / .05), 10.95, .12, verb=.4)   # pin plip
@@ -170,7 +179,7 @@ for t0 in (12.7, 13.9): add(whoosh(1.0, True), t0, .07, pan=-.3, verb=.3)
 t0 = 15.6; tt = t0; iv = .5
 while tt < 21.7:
     add(tick(), tt, .28 + .1 * (tt - t0) / 6, pan=.25); tt += iv; iv = max(.11, iv * .9)
-d = 6.15
+d = dur(15.6, 6.15)
 dr = sine(lambda t: 55 + 12 * (t / d) ** 2, d) + .5 * sine(lambda t: 82.4 + 18 * (t / d) ** 2, d)
 add(dr * adsr(d, 1.0, .02), 15.6, .22, verb=.2)
 add(air(d, 800, 5000) * np.linspace(0, 1, int(d * FS)) ** 2, 15.6, .07)
@@ -182,22 +191,23 @@ for k in range(26):
         add(np.repeat(g[::8], 8)[:len(g)], t0, .25, pan=rng.uniform(-.8, .8))
 
 # the wish: near silence
-add(air(6, 80, 400) * adsr(6, 1, 1), 22.0, .02)
-add(pad([NOTE['A4'], NOTE['D5']], 6, a=2.5, r=2, bright=3000), 22.0, .08, verb=.6)
+d6 = dur(22.0, 6)
+add(air(d6, 80, 400) * adsr(d6, 1, 1), 22.0, .02)
+add(pad([NOTE['A4'], NOTE['D5']], d6, a=2.5, r=2, bright=3000), 22.0, .08, verb=.6)
 add(oud('D4', 3, .5), 24.6, .3, verb=.7)
 
 # majlis: warm room, coals, pour, heartbeat on "على طول"
-d = 7.5
+d = dur(28.0, 7.5)
 add(air(d, 60, 450) * adsr(d, .6, .5), 28.0, .12)
 add(crackle(d, 10) * adsr(d, .5, .5), 28.0, .1, pan=-.5, verb=.2)
 add(pour(1.6), 28.2, .05, pan=.3)
 for k in range(3): add(heartbeat(), 33.7 + k * .82, .75); add(heartbeat(), 33.95 + k * .82, .5)
-add(pad([NOTE['D3'], NOTE['A3'], NOTE['F4']], 4.2, a=2.5, r=.3, bright=1200), 35.3, .13, verb=.5)
+add(pad([NOTE['D3'], NOTE['A3'], NOTE['F4']], dur(35.3, 4.2), a=2.5, r=.3, bright=1200), 35.3, .13, verb=.5)
 add(whoosh(.45, False), 38.95, .12)
 add(cup_tak(), 39.35, .55, verb=.9)
 
 # founding: oud theme + daf
-add(pad([NOTE['D3'], NOTE['F3'], NOTE['A3']], 6.8, a=.8, r=.6, bright=1700), 40.1, .14, verb=.4)
+add(pad([NOTE['D3'], NOTE['F3'], NOTE['A3']], dur(40.1, 6.8), a=.8, r=.6, bright=1700), 40.1, .14, verb=.4)
 x = fft_filter(noise(2.0), lo=2000, hi=7000) * (np.abs(np.sin(2 * np.pi * 6 * T(2.0))) ** 3)
 add(x * adsr(2.0, .1, .2), 40.4, .05, pan=.2)
 for t0, n in ((40.6, 'D4'), (41.05, 'F4'), (41.5, 'Eb4'), (41.95, 'D4'), (42.8, 'A4'), (43.25, 'Bb4'), (43.7, 'A4'), (44.15, 'G4'), (44.6, 'F4'), (45.05, 'Eb4'), (45.5, 'D4')):
@@ -213,18 +223,18 @@ while b < 46.8: daf_bar(b, .7); b += 4 * BEAT
 # principle: build
 b = 47.2
 while b < 58.9: daf_bar(b, .55 + .45 * (b - 47.2) / 11.7); b += 4 * BEAT
-add(pad([NOTE['D3'], NOTE['A3'], NOTE['D4'], NOTE['F4']], 11.8, a=4, r=.05, bright=2600), 47.2, .2, verb=.4)
+add(pad([NOTE['D3'], NOTE['A3'], NOTE['D4'], NOTE['F4']], dur(47.2, 11.8), a=4, r=.05, bright=2600), 47.2, .2, verb=.4)
 for t0 in (51.8, 52.7, 53.6, 54.6, 55.6):
     add(boom(1.4, 90, 45, .3), t0, .55, verb=.3); add(bell(NOTE['D6'], 1.2, .25), t0 + .22, .05, verb=.6)
-add(whoosh(2.0, True) * np.linspace(0, 1, int(2.0 * FS)) ** 2, 57.0, .3, verb=.3)
+_d = dur(57.0, 2.0); add(whoosh(_d, True) * np.linspace(0, 1, int(_d * FS)) ** 2, 57.0, .3, verb=.3)
 
 # the line: silence -> whisper shimmer -> big hit
-sh = np.zeros(int(.75 * FS))
-for f in (NOTE['D5'], NOTE['A5'], NOTE['D6']): sh += np.sin(2 * np.pi * f * T(.75))
+_d = dur(59.85, .75); sh = np.zeros(int(_d * FS))
+for f in (NOTE['D5'], NOTE['A5'], NOTE['D6']): sh += np.sin(2 * np.pi * f * T(_d))
 add(sh * np.linspace(0, 1, len(sh)) ** 3, 59.85, .05, verb=.8)
 add(boom(3.0, 70, 30, .8), 60.6, 1.0, verb=.5)
 add(fft_filter(noise(3.0), lo=4000, hi=15000) * env_exp(3.0, .8), 60.6, .12, verb=.5)
-add(pad([NOTE['D3'], NOTE['A3'], NOTE['D4'], NOTE['F4'], NOTE['A4']], 9.5, a=.02, r=1.2, bright=3200), 60.6, .22, verb=.5)
+add(pad([NOTE['D3'], NOTE['A3'], NOTE['D4'], NOTE['F4'], NOTE['A4']], dur(60.6, 9.5), a=.02, r=1.2, bright=3200), 60.6, .22, verb=.5)
 add(oud('D4', 2.4, 1), 60.6, .45, verb=.5)
 
 # growth: full theme, rising plucks per country, chimes for branches
@@ -240,7 +250,7 @@ for t0 in (65.2, 67.4): add(bell(NOTE['A5'], 2.5, .7), t0, .12, verb=.6); add(be
 # arrival: chime + resolve to D major
 add(bell(NOTE['F5'] * 1.06, 2.2, .7), 70.3, .12, verb=.5)
 add(bell(NOTE['C5'] * 1.06, 2.6, .9), 70.75, .12, verb=.5)
-add(pad([NOTE['D3'], NOTE['Fs4'], NOTE['A3'], NOTE['D4'], NOTE['A4']], 6.6, a=.5, r=1.4, bright=3400), 70.1, .24, verb=.5)
+add(pad([NOTE['D3'], NOTE['Fs4'], NOTE['A3'], NOTE['D4'], NOTE['A4']], dur(70.1, 6.6), a=.5, r=1.4, bright=3400), 70.1, .24, verb=.5)
 for t0, n in ((71.0, 'D4'), (71.5, 'Fs4'), (72.0, 'A4'), (72.6, 'G4'), (73.1, 'Fs4'), (73.7, 'D4')): add(oud(n, 2.0, .9), t0, .38, pan=.1, verb=.5)
 b = 70.0
 while b < 75.4: daf_bar(b, .5); b += 4 * BEAT

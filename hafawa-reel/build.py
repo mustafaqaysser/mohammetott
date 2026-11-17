@@ -7,6 +7,8 @@ html = (R/'src/template.html').read_text()
 html = html.replace('/*FONTS*/', (R/'assets/fonts.css').read_text())
 html = html.replace('/*CSS*/', (R/'src/style.css').read_text())
 html = html.replace('/*MAP*/', json.dumps(m, separators=(',', ':')))
+tp = R/'src/timing.json'
+html = html.replace('/*TIMING*/', tp.read_text() if tp.exists() else 'null')
 html = html.replace('/*APP*/', (R/'src/app.js').read_text())
 (R/'index.html').write_text(html)
 print('index.html', len(html)//1024, 'KB')

@@ -11,3 +11,12 @@
 - `voice/README.md`: قائمة مقاطع الصوت المطلوبة من Google AI Studio وتوقيت كل واحد.
 
 ملاحظة: نقاط الدول الـ 21 على الخريطة توضيحية. ضع القائمة الحقيقية في `DEST` داخل `src/app.js`.
+
+## الصوت (تسجيل واحد متواصل)
+`voice/full-take.wav` هو تسجيل Google AI Studio. خطوات ربطه:
+
+    python3 align.py     # يحدد مكان كل جملة في التسجيل
+    python3 retime.py    # يضيف وقفات درامية، ويطلع خريطة توقيت الصورة والكلام المكتوب (src/timing.json)
+    python3 audio.py && python3 build.py
+    node render.cjs frames build/frames 30 4
+    python3 mix.py       # -> hafawa-reel.mp4
